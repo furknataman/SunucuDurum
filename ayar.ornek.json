@@ -1,0 +1,23 @@
+{
+  "ad": "Sunucum",
+  "ssh": "sunucum",
+  "adres": "203.0.113.10",
+  "agArayuzu": "eth0",
+  "servisler": [
+    { "ad": "nginx", "gorunenAd": "Nginx" },
+    { "ad": "wg-quick@wg0", "gorunenAd": "WireGuard" },
+    { "ad": "postgresql@16-main", "gorunenAd": "PostgreSQL 16" }
+  ],
+  "projeler": [
+    { "ad": "Web Sitesi", "sembol": "globe", "onekler": ["site-web", "site-api"] },
+    { "ad": "Veritabanı", "sembol": "externaldrive.fill", "onekler": ["veritabani"] }
+  ],
+  "yedekler": [
+    { "ad": "Veritabanı", "klasor": "/var/backups/db", "desen": "*.dump" },
+    { "ad": "Site", "klasor": "/srv/site/backups", "desen": "site-*.sql.gz" }
+  ],
+  "saglikKlasoru": "/var/log/saglik",
+  "gorevKlasoru": "/home/ajan/gorevler/",
+  "vpn": { "arayuz": "wg0", "tunel": "sunucum-vpn", "ayarDosyasi": "Downloads/sunucum-vpn.conf" },
+  "adguard": { "adres": "10.0.0.1", "port": 3080, "sifreDosyasi": "/etc/adguard/parola.txt", "testAlanAdi": "example.com" }
+}
