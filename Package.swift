@@ -7,7 +7,8 @@ let package = Package(
     targets: [
         .executableTarget(
             name: "SunucuDurum",
-            swiftSettings: [.swiftLanguageMode(.v5)]
+            swiftSettings: [.swiftLanguageMode(.v5)],
+            linkerSettings: [.linkedFramework("CoreDisplay")]   // DDC ekran eşleştirmesi (sistem çerçevesi)
         )
     ]
 )

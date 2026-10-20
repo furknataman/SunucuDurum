@@ -20,6 +20,8 @@ final class Durum {
     private(set) var agGecmisi: [AgOrnek] = []
     private(set) var canliAg = false
     let macVPN = MacVPN()
+    let ekranlar = Ekranlar()
+    let kota = Kota()
 
     private var dongu: Task<Void, Never>?
     private var akis: CanliAgAkisi?
@@ -36,6 +38,8 @@ final class Durum {
     func baslat() {
         guard dongu == nil else { return }
         macVPN.izlemeyiBaslat()
+        ekranlar.baslat()
+        kota.baslat()
         dongu = Task { [weak self] in
             while !Task.isCancelled {
                 await self?.yenile()

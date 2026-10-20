@@ -50,23 +50,49 @@ extension Seviye {
 
 // MARK: - Ana panel
 
+enum PanelSayfasi: String, CaseIterable {
+    case sunucu = "Sunucu", ekranlar = "Ekranlar", yapayZeka = "Yapay Zekâ"
+}
+
 struct Panel: View {
     @Environment(Durum.self) private var durum
     var canliAgKullan = true
+    // Panel her açılışta en son bakılan sayfayla açılır.
+    @AppStorage("panelSayfasi") private var sayfa = PanelSayfasi.sunucu
 
     var body: some View {
         VStack(spacing: 10) {
-            Baslik()
-            if let hata = durum.hata { HataKarti(mesaj: hata) }
-            if let r = durum.rapor {
-                Icerik(rapor: r)
-                    .opacity(durum.hata == nil ? 1 : 0.45)
-                    .saturation(durum.hata == nil ? 1 : 0.2)
-                    .allowsHitTesting(durum.hata == nil)
-            } else if durum.hata == nil {
-                Yukleniyor()
+            Picker("Sayfa", selection: $sayfa) {
+                ForEach(PanelSayfasi.allCases, id: \.self) { Text($0.rawValue).tag($0) }
             }
-            Alt()
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            switch sayfa {
+            case .sunucu:
+                Baslik()
+                if let hata = durum.hata { HataKarti(mesaj: hata) }
+                if let r = durum.rapor {
+                    Icerik(rapor: r)
+                        .opacity(durum.hata == nil ? 1 : 0.45)
+                        .saturation(durum.hata == nil ? 1 : 0.2)
+                        .allowsHitTesting(durum.hata == nil)
+                } else if durum.hata == nil {
+                    Yukleniyor()
+                }
+            case .ekranlar:
+                if durum.ekranlar.liste.isEmpty {
+                    BosSayfa(sembol: "display.2", metin: "Bağlı harici ekran yok.")
+                } else {
+                    EkranlarKarti(ekranlar: durum.ekranlar)
+                }
+            case .yapayZeka:
+                if durum.kota.saglayicilar.isEmpty {
+                    BosSayfa(sembol: "chart.bar.fill", metin: "Bu Mac'te oturum açılmış Claude Code ya da Codex bulunamadı.")
+                } else {
+                    KotaKarti(kota: durum.kota)
+                }
+            }
+            Alt(sunucuSayfasi: sayfa == .sunucu)
         }
         .padding(14)
         .frame(width: 420)
@@ -132,7 +158,7 @@ private struct Cip: View {
     }
 }
 
-private struct Kart<Icerik: View>: View {
+struct Kart<Icerik: View>: View {
     let baslik: String
     let sembol: String
     var renk: Color = Tema.mavi
@@ -234,6 +260,7 @@ private struct YenileTusu: View {
     var body: some View {
         Button {
             Task { await durum.yenile() }
+            Task { await durum.kota.yenile() }
         } label: {
             Image(systemName: "arrow.clockwise")
                 .font(.system(size: 13, weight: .semibold))
@@ -722,17 +749,97 @@ private struct GorevKarti: View {
     }
 }
 
+// MARK: - Ekranlar
+
+private struct EkranlarKarti: View {
+    let ekranlar: Ekranlar
+
+    var body: some View {
+        Kart(baslik: "EKRANLAR", sembol: "display.2", renk: Tema.turuncu) {
+            VStack(alignment: .leading, spacing: 12) {
+                if !ekranlar.izinVar {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Klavyedeki parlaklık tuşlarının harici ekranlarda çalışması için Sunucu Durum'a Erişilebilirlik izni ver.")
+                            .font(Tema.yazi(12)).fixedSize(horizontal: false, vertical: true)
+                        Button { ekranlar.izinAyariniAc() } label: {
+                            Label("Erişilebilirlik ayarlarını aç", systemImage: "hand.raised.fill")
+                        }
+                        .buttonStyle(DuzTus())
+                    }
+                    Rectangle().fill(Tema.kenar).frame(height: 1)
+                }
+                ForEach(ekranlar.liste) { e in
+                    EkranSatiri(ekran: e) { ekranlar.ayarla(e.id, $0) }
+                }
+            }
+            .animation(.smooth(duration: 0.3), value: ekranlar.izinVar)
+        }
+    }
+}
+
+private struct EkranSatiri: View {
+    let ekran: Ekranlar.Ekran
+    let ayarla: (Double) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack {
+                Text(ekran.ad).font(Tema.yazi(13, .medium)).lineLimit(1)
+                Spacer(minLength: 8)
+                if ekran.mod != .denetleniyor {
+                    Text(Bicim.yuzde(ekran.deger * 100)).font(Tema.yazi(12, .semibold)).monospacedDigit()
+                        .foregroundStyle(Tema.ikincil)
+                }
+            }
+            HStack(spacing: 8) {
+                Image(systemName: "sun.min.fill")
+                Slider(value: Binding(get: { ekran.deger }, set: ayarla), in: 0...1) {
+                    Text("\(ekran.ad) parlaklığı")
+                }
+                .labelsHidden()
+                .tint(Tema.turuncu)
+                .disabled(ekran.mod == .denetleniyor)
+                Image(systemName: "sun.max.fill")
+            }
+            .font(Tema.yazi(12))
+            .foregroundStyle(Tema.ikincil)
+            if ekran.mod == .birlesik, ekran.yanitYok {
+                Text("Ekran parlaklık komutuna yanıt vermiyor.").font(Tema.yazi(11)).foregroundStyle(Tema.turuncu)
+            }
+        }
+    }
+}
+
 // MARK: - Alt çubuk
 
+/// Sayfada gösterilecek veri olmadığında tek satırlık açıklama.
+private struct BosSayfa: View {
+    let sembol: String
+    let metin: String
+
+    var body: some View {
+        VStack(spacing: 8) {
+            Image(systemName: sembol).font(.system(size: 22)).foregroundStyle(Tema.ikincil)
+            Text(metin).font(Tema.yazi(12)).foregroundStyle(Tema.ikincil).multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 28)
+    }
+}
+
 private struct Alt: View {
+    let sunucuSayfasi: Bool
+
     var body: some View {
         HStack {
-            Button {
-                Terminal.baglan()
-            } label: {
-                Label("Terminal'de bağlan", systemImage: "terminal.fill")
+            if sunucuSayfasi {
+                Button {
+                    Terminal.baglan()
+                } label: {
+                    Label("Terminal'de bağlan", systemImage: "terminal.fill")
+                }
+                .buttonStyle(DuzTus())
             }
-            .buttonStyle(DuzTus())
             Spacer()
             Button {
                 NSApp.terminate(nil)

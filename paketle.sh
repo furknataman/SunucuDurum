@@ -1,5 +1,7 @@
 #!/bin/bash
-# Derler, "~/Applications/Sunucu Durum.app" paketini oluşturur, ad-hoc imzalar ve uygulamayı yeniden başlatır.
+# Derler, "~/Applications/Sunucu Durum.app" paketini oluşturur, imzalar ve uygulamayı yeniden başlatır.
+# İmza kimliği: SIGN_ID ortam değişkeni; yoksa anahtar zincirindeki ilk "Apple Development" kimliği; o da yoksa ad-hoc (-).
+# Kalıcı bir kimlikle imzalamak, her derlemede Erişilebilirlik izninin düşmesini önler.
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -29,7 +31,9 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 </dict>
 </plist>
 PLIST
-codesign --force --sign - --timestamp=none "$APP"
+SIGN_ID="${SIGN_ID:-$(security find-identity -v -p codesigning 2>/dev/null | awk '/Apple Development/ && !f {f=$2} END {print f}' || true)}"
+SIGN_ID="${SIGN_ID:--}"
+codesign --force --sign "$SIGN_ID" --timestamp=none "$APP"
 codesign --verify --verbose "$APP"
 open "$APP"
 echo "Hazır: $APP"
